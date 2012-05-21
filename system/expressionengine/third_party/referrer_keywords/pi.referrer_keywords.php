@@ -26,72 +26,48 @@ $plugin_info = array(
   'pi_version' =>'1.0.0',
   'pi_author' =>'John Faulds',
   'pi_author_url' => 'http://www.tyssendesign.com.au',
-  'pi_description' => 'Referrer Keywords Plugins - Saves the keywords from a referring search engine',
-  'pi_usage' => Ress::usage()
+  'pi_description' => 'Referrer Keywords Plugin - Extracts the keywords from a referring search engine querstring captured with EE’s first party Referrer module',
+  'pi_usage' => Referrer_keywords::usage()
   );
 
 class Referrer_keywords {
 
+	var $return_data = '';
+
 	public function __construct()
 	{
 		$this->EE =& get_instance();
+
+		$str = $this->EE->TMPL->tagdata;
+
+		// Remove HTML from around the URL
+		preg_match('/\>(.*)<\/a>/', $str, $referrer);
+
+		// Parse the referrer URL
+		$parsed_url = parse_url($referrer[1]);
+		if (empty($parsed_url['host']))
+			return false;
+		$host = $parsed_url['host'];
+
+		// Parse the querystring
+		$query_str = (!empty($parsed_url['query'])) ? $parsed_url['query'] : '';
+		$query_str = (empty($query_str) && !empty($parsed_url['fragment'])) ? $parsed_url['fragment'] : $query_str;
+
+		// Start the output with the referrer
+		$output = 'Referrer: '. $host;
+
+		// If the referrer is a search engine output the value of the search query
+		if($query_str)
+		{
+			parse_str($query_str);
+			$keywords = $q;
+			$output .= '; Keywords: '. $q;
+		}
+
+		$this->return_data = $output;
+
 	}
 
-	function set()
-    {
-		if(!isset $_SESSION['keywords'])
-		{
-			$keywords='';
-
-			// Get the full referring URL
-			$referrer = ( ! isset($_SERVER['HTTP_REFERER'])) ? '' : $this->EE->security->xss_clean($_SERVER['HTTP_REFERER']);
-			$uri = parse_url($referrer);
-			
-
-			// Remove our own domain
-			if($uri['host'] != 'www.tyssendesign.com.au')
-			{
-				// Get keywords from referrer
-				$parsed = parse_url($referrer, PHP_URL_QUERY);
-				parse_str($parsed, $query);
-				$keywords = $query['q'];
-
-				//if no active session we start a new one
-				if (session_id() == "") 
-				{
-					session_start();
-				}
-
-				$_SESSION['keywords'] = $keywords;
-
-			}
-		}
-	}
-	/* END */
-
-	// --------------------------------------------------------------------
-	
-	/**
-	  *  Get session variable
-	  */  
-	function get()
-	{		
-		// if no active session we start a new one
-		if (session_id() == "") 
-		{
-			session_start(); 
-		}
-		
-		if (isset($_SESSION['keywords']))
-		{
-			return $_SESSION['keywords'];
-		}
-		
-		else
-		{
-			return '';
-		}
-	}
 	/* END */	
 
 	// --------------------------------------------------------------------
@@ -109,11 +85,15 @@ class Referrer_keywords {
 	  ?>
 		Usage example:
 		
-		Place {exp:ress:cookie} somewhere in the head of your template to set a cookie based on your window's width.
+		This plugin is to be used in conjunction with ExpressionEngine's first party Referrer module. You could just do this:
 
-		The screen width will then be available as an ExpressionEngine variable {ress} which you can use anywhere in your templates.
+		{exp:referrer limit="1"}{ref_from}{/exp:referrer}
 
-		Possible scenarios include hiding or showing certain content based on screen size, e.g.: {if {ress} > 480} show larger screen content {/if}
+		but because the module automatically outputs {ref_from} with an anchor tag wrapped around it, if you try to use that in a hidden form input in a contact form, it'll break your page.
+
+		So this plugin just strips out the unnecessary HTML and returns a string including the referrer and the keywords (if the referrer is a search engine).
+
+		Place {exp:referrer limit="1"}{exp:referrer_keywords}{ref_from}{/exp:referrer_keywords}{/exp:referrer} somewhere in your template.
 				
 	  <?php
 	  $buffer = ob_get_contents();
