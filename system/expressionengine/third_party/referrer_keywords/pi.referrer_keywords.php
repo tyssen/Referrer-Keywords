@@ -56,13 +56,14 @@ class Referrer_keywords {
 		// Start the output with the referrer
 		$output = 'Referrer: '. $host;
 
+		// Check if there's a query string
+		if (empty($query_str))
+			return false;
+
 		// If the referrer is a search engine output the value of the search query
-		if($query_str)
-		{
-			parse_str($query_str);
-			$keywords = $q;
-			$output .= '; Keywords: '. $q;
-		}
+		parse_str($query_str);
+		$keywords = $q;
+		$output .= '; Keywords: '. $q;
 
 		$this->return_data = $output;
 
